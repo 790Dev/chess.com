@@ -16,8 +16,8 @@ let currentTurn = "w";
 let gameActive = false;
 
 let timerInterval = null;
-let timeLimit = 600;
-let timers = { w: 600, b: 600 };
+let timeLimit = 900; // 15-minute Classical mode default
+let timers = { w: 900, b: 900 };
 let timeSet = false;
 
 app.set("view engine", "ejs");
