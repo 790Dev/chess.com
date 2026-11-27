@@ -16,8 +16,8 @@ let currentTurn = "w";
 let gameActive = false;
 
 let timerInterval = null;
-let timeLimit = 600;
-let timers = { w: 600, b: 600 };
+let timeLimit = 180; // 3-minute Blitz mode default
+let timers = { w: 180, b: 180 };
 let timeSet = false;
 
 app.set("view engine", "ejs");
