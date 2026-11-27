@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Game</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body {
+            background-color: #18181b; 
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            gap: 1rem;
+            position: relative;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 600px;
+            padding: 10px 20px;
+            background-color: #27272a;
+            border-radius: 8px;
+        }
+        .player-name { font-weight: bold; font-size: 1.2rem; }
+        
+        .timer {
+            background-color: #3f3f46;
+            padding: 5px 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .timer.active { background-color: #f59e0b; color: black; }
+
+        .captured-pieces { display: flex; gap: 2px; height: 24px; }
+        .captured-piece { font-size: 20px; opacity: 0.7; }
+
+        .chessboard {
+            display: grid;
+            grid-template-columns: repeat(8, minmax(0, 1fr));
+            grid-template-rows: repeat(8, minmax(0, 1fr));
+            width: 600px; height: 600px;
+            border: 5px solid #3f3f46;
+            position: relative; 
+        }
+        .flipped { transform: rotate(180deg); }
+        .square { display: flex; align-items: center; justify-content: center; position: relative; }
+        .square.light { background-color: #f0d9b5; }
+        .square.dark { background-color: #b58863; }
+        .square.highlight { background-color: rgba(255, 255, 0, 0.5); }
+        
+        .piece {
+            font-size: 50px; cursor: pointer;
+            font-family: "Segoe UI Symbol", "Noto Sans Symbols", "Arial Unicode MS", serif;
+            user-select: none; z-index: 10; 
+        }
+        .piece.white { color: white; filter: drop-shadow(0 0 2px rgba(0,0,0,1)); }
+        .piece.black { color: black; }
+        .flipped .piece { transform: rotate(180deg); }
+        
+        .move-dot { width: 24px; height: 24px; background: rgba(0,0,0,0.2); border-radius: 50%; pointer-events: none; }
+        .capture-ring { position: absolute; width: 80%; height: 80%; border: 6px solid rgba(0,0,0,0.2); border-radius: 50%; pointer-events: none; }
+
+        /* --- MODAL STYLES --- */
+        #setup-modal, #game-over-modal {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            color: white;
+        }
+        
+        /* FIX: Counter-rotate BOTH modals so text is upright for Black */
+        .flipped #setup-modal, .flipped #game-over-modal {
+            transform: rotate(180deg);
+        }
+        .flipped .btn, .flipped .ready-btn { cursor: pointer; }
+
+        .hidden { display: none !important; }
+        
+        .btn-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        .btn {
+            padding: 10px 20px;
+            border: 2px solid #52525b;
+            background: #27272a;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: 0.2s;
+        }
+        .btn:hover { background: #3f3f46; }
+        .btn.selected { background: #22c55e; border-color: #22c55e; color: black; font-weight: bold; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .ready-btn { background-color: #2563eb; font-size: 1.2rem; padding: 15px 40px; }
+        .ready-btn.ready { background-color: #22c55e; }
+        
+        #countdown { font-size: 5rem; font-weight: bold; color: #facc15; }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <div class="player-info">
+            <div class="flex flex-col">
+                <span class="player-name" id="top-player-name">Opponent</span>
+                <div id="top-captured" class="captured-pieces"></div>
+            </div>
+            <div id="top-timer" class="timer">10:00</div>
+        </div>
+
+        <div class="chessboard">
+            
+            <div id="setup-modal">
+                <h2 class="text-2xl mb-4 font-bold">Game Setup</h2>
+                <div id="time-selection" class="flex flex-col items-center">
+                    <p class="mb-2 text-gray-300">Select Time Control:</p>
+                    <div class="btn-group">
+                        <button class="btn time-btn" data-min="5">5 min</button>
+                        <button class="btn time-btn" data-min="10">10 min</button>
+                        <button class="btn time-btn" data-min="20">20 min</button>
+                        <button class="btn time-btn" data-min="30">30 min</button>
+                    </div>
+                </div>
+                <div id="waiting-message" class="hidden text-xl mb-4 text-yellow-400">Waiting for host to select time...</div>
+                <button id="ready-btn" class="btn ready-btn" disabled>I'm Ready</button>
+                <div id="status-text" class="mt-4 text-gray-400">Waiting for players...</div>
+                <div id="countdown" class="hidden"></div>
+            </div>
+
+            <div id="game-over-modal" class="hidden">
+                <h2 id="game-result" class="text-3xl mb-2 font-bold text-yellow-400">Game Over</h2>
+                <p id="game-reason" class="mb-6 text-xl text-gray-300">Checkmate</p>
+                <button onclick="location.reload()" class="btn ready-btn">Play Again</button>
+            </div>
+
+        </div>
+
+        <div class="player-info">
+            <div class="flex flex-col">
+                <span class="player-name" id="bottom-player-name">You</span>
+                <div id="bottom-captured" class="captured-pieces"></div>
+            </div>
+            <div id="bottom-timer" class="timer">10:00</div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="/js/chessgames.js"></script>
+</body>
+</html>
